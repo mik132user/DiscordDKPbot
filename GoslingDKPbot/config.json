@@ -1,0 +1,14 @@
+{
+    "clients": [
+        {
+            "client_id": 3330,
+            "token": "i will add here token",
+            "database": "./data/client_3330.db"
+        },
+        {
+            "client_id": 3341,
+            "token": "i will add here token",
+            "database": "./data/client_3341.db"
+        }
+    ]
+}
