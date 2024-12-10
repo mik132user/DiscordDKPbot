@@ -5,8 +5,8 @@ async def run_bot_3330():
     await proc.wait()
     
 async def main():
-    # Параллельный запуск двух ботов
-    await asyncio.gather(run_bot_3330(), run_bot_3344())
+    # Запуск двух ботов
+    await asyncio.gather(run_bot_3330())
 
 # Запуск событийного цикла
 asyncio.run(main())
