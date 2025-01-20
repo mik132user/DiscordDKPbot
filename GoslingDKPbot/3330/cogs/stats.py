@@ -9,12 +9,29 @@ from utilits.constants import UPDATE_DATE, ALLOWED_CHANNELS
 logger = logging.getLogger(__name__)
 
 class PlayerStats(commands.Cog):
+    """
+    A cog for handling player statistics retrieval and display.
+    """
     def __init__(self, bot):
+        """
+        Initialize the PlayerStats cog.
+
+        Args:
+            bot (commands.Bot): The Discord bot instance.
+        """
         self.bot = bot
         self.user_command_timestamps = {}
 
     @commands.command()
     async def stats(self, ctx):
+        """
+        Retrieve and display player statistics.
+
+        This command retrieves statistics for a user’s linked accounts from the database and displays them in an embed.
+
+        Args:
+            ctx (commands.Context): The command context.
+        """
         # Rate-limiting: Only one stats command every 10 seconds per user
         now = discord.utils.utcnow()
         last_used = self.user_command_timestamps.get(ctx.author.id, None)
@@ -78,6 +95,16 @@ class PlayerStats(commands.Cog):
                         await message.add_reaction(emoji)
 
                     def check(reaction, user):
+                        """
+                        Check if the reaction is valid and from the command invoker.
+
+                        Args:
+                            reaction (discord.Reaction): The reaction object.
+                            user (discord.User): The user who reacted.
+
+                        Returns:
+                            bool: True if valid, False otherwise.
+                        """
                         return user == ctx.author and str(reaction.emoji) in ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣']
 
                     try:
@@ -100,6 +127,16 @@ class PlayerStats(commands.Cog):
 
                 # Safe extraction of player data with default values
                 def safe_get(value, default=0):
+                    """
+                    Safely get a value, returning a default if the value is None.
+
+                    Args:
+                        value: The value to check.
+                        default: The default value to return if value is None.
+
+                    Returns:
+                        The value or the default.
+                    """
                     return value if value is not None else default
 
                 try:
@@ -164,4 +201,10 @@ class PlayerStats(commands.Cog):
             await ctx.send("An error occurred while retrieving player statistics.")
 
 async def setup(bot):
+    """
+    Add the PlayerStats cog to the bot.
+
+    Args:
+        bot (commands.Bot): The Discord bot instance.
+    """
     await bot.add_cog(PlayerStats(bot))
