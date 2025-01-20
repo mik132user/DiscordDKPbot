@@ -10,10 +10,6 @@ logger = logging.getLogger(__name__)
 class Rankings(commands.Cog):
     """
     A Cog for managing ranking commands.
-
-    Attributes:
-        bot (commands.Bot): The Discord bot instance.
-        user_command_timestamps (dict): Dictionary for rate-limiting user commands.
     """
 
     def __init__(self, bot):
