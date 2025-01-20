@@ -10,12 +10,37 @@ import logging
 logger = logging.getLogger(__name__)
 
 class Linkme(commands.Cog):
+    """
+    A Cog for managing linking and unlinking player IDs to Discord users.
+
+    This Cog allows users to associate their Discord account with specific player IDs 
+    in a database, categorized as main, alt, or farm accounts. It provides commands 
+    for linking and unlinking player IDs, with rate-limiting and error handling.
+    """
+
     def __init__(self, bot):
+        """
+        Initialize the Linkme Cog.
+
+        Args:
+            bot (commands.Bot): The bot instance.
+        """
         self.bot = bot
         self.user_command_timestamps = {}
 
     @commands.command()
     async def linkme(self, ctx, player_id: str):
+        """
+        Link a player ID to a Discord user's profile.
+
+        Args:
+            ctx (commands.Context): The command context.
+            player_id: The player ID to link.
+
+        Notes:
+            - Allows linking of main, alt, or farm IDs.
+            - Enforces rate-limiting of 10 seconds between consecutive uses per user..
+        """
         # Rate-limiting: Only one linkme command every 10 seconds per user
         now = discord.utils.utcnow()
         last_used = self.user_command_timestamps.get(ctx.author.id, None)
@@ -115,7 +140,18 @@ class Linkme(commands.Cog):
 
     @commands.command()
     async def unlinkme(self, ctx, player_id: str):
-        # Rate-limiting: Only one unlinkme command every 10 seconds per user
+        """
+        Unlink a player ID from a Discord user's profile.
+
+        Args:
+            ctx (commands.Context): The command context.
+            player_id (str): The player ID to unlink.
+
+        Notes:
+            - Validates that the player ID is numeric.
+            - Removes the association of the player ID with the user's profile in the database.
+            - Enforces rate-limiting of 10 seconds between consecutive uses per user.
+        """
         now = discord.utils.utcnow()
         last_used = self.user_command_timestamps.get(ctx.author.id, None)
         if last_used and (now - last_used).total_seconds() < 10:
@@ -126,7 +162,6 @@ class Linkme(commands.Cog):
         if ctx.channel.id not in ALLOWED_CHANNELS:
             return
 
-        # Validate that the player_id is a valid integer
         try:
             player_id = int(player_id)
         except ValueError:
@@ -137,7 +172,6 @@ class Linkme(commands.Cog):
 
         try:
             async with self.bot.db.conn.cursor() as cursor:
-                # Fetch linked IDs for the user
                 await cursor.execute("""
                     SELECT main_id, alt1_id, alt2_id, alt3_id, farm1_id, farm2_id, farm3_id, farm4_id, farm5_id
                     FROM users
@@ -152,7 +186,6 @@ class Linkme(commands.Cog):
                 columns = ["main_id", "alt1_id", "alt2_id", "alt3_id", "farm1_id", "farm2_id", "farm3_id", "farm4_id", "farm5_id"]
                 found = False
 
-                # Unlink the specified player ID
                 for column, linked_id in zip(columns, linked_ids):
                     if linked_id == player_id:
                         await cursor.execute(f"UPDATE users SET {column}=NULL WHERE discord_user_id=?", (discord_user_id,))
@@ -170,6 +203,13 @@ class Linkme(commands.Cog):
 
     @linkme.error
     async def linkme_error(self, ctx, error):
+        """
+        Handle errors for the linkme command.
+
+        Args:
+            ctx (commands.Context): The command context.
+            error (commands.CommandError): The error raised during command execution.
+        """
         if isinstance(error, commands.MissingRequiredArgument):
             await ctx.send("Please provide a player ID. Example: `!linkme 12345`.")
         elif isinstance(error, commands.CommandNotFound):
@@ -182,6 +222,13 @@ class Linkme(commands.Cog):
 
     @unlinkme.error
     async def unlinkme_error(self, ctx, error):
+        """
+        Handle errors for the unlinkme command.
+
+        Args:
+            ctx (commands.Context): The command context.
+            error (commands.CommandError): The error raised during command execution.
+        """
         if isinstance(error, commands.MissingRequiredArgument):
             await ctx.send("Please provide a player ID. Example: `!unlinkme 12345`.")
         elif isinstance(error, commands.CommandNotFound):
@@ -193,4 +240,10 @@ class Linkme(commands.Cog):
             logger.error(f"Error in command '{ctx.command}': {error}")
 
 async def setup(bot):
+    """
+    Setup function to add the Linkme Cog to the bot.
+
+    Args:
+        bot (commands.Bot): The bot instance.
+    """
     await bot.add_cog(Linkme(bot))
