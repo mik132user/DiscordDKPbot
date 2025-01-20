@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 class Rankings(commands.Cog):
     """
-    A Discord Cog for handling ranking-related commands.
+    A Cog for managing ranking commands.
 
     Attributes:
         bot (commands.Bot): The Discord bot instance.
