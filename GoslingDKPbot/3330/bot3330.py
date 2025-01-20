@@ -3,7 +3,7 @@ import os
 import asyncio
 import logging
 from discord.ext import commands
-from utilits.database import Database  # импорт класса базы данных
+from utilits.database import Database
 from dotenv import load_dotenv
 
 # Enable logging
@@ -30,14 +30,19 @@ bot.db = Database(DATABASE_PATH)
 # Event when the bot is ready
 @bot.event
 async def on_ready():
+    """
+    Event triggered when the bot successfully connects to Discord and becomes ready.
+
+    This function logs the bot's connection status and ensures the database connection is active.
+    """
     try:
         logger.info(f'Logged in as {bot.user}')
 
         # Check if database connection is active
         logger.info('Checking database connection...')
-        if not await bot.db.is_connected():  # Здесь нужно использовать await для асинхронного метода
+        if not await bot.db.is_connected():
             try:
-                await bot.db.connect()  # Попытка переподключения
+                await bot.db.connect()
                 logger.info(f'Successfully connected to database {DATABASE_PATH}')
             except Exception as e:
                 logger.error(f'Failed to reconnect to database: {e}')
@@ -49,8 +54,12 @@ async def on_ready():
 # Event when the bot disconnects from Discord
 @bot.event
 async def on_disconnect():
+    """
+    Event triggered when the bot disconnects from Discord.
+
+    This function attempts to gracefully close the database connection.
+    """
     logger.warning('Bot disconnected from Discord!')
-    # Try to close the database connection gracefully
     try:
         await bot.db.close()
         logger.info('Disconnected from database')
@@ -60,11 +69,15 @@ async def on_disconnect():
 # Event when bot successfully reconnects to Discord
 @bot.event
 async def on_resumed():
+    """
+    Event triggered when the bot reconnects to Discord after being disconnected.
+
+    This function ensures the database connection is re-established if needed.
+    """
     logger.info('Bot successfully reconnected to Discord!')
-    # Reconnect to database if needed
     try:
-        if not await bot.db.is_connected():  # Используем await здесь
-            await bot.db.connect()  # Переподключение
+        if not await bot.db.is_connected():
+            await bot.db.connect()
             logger.info(f'Reconnected to database {DATABASE_PATH} after Discord reconnect')
         else:
             logger.info('Database connection already active.')
@@ -73,23 +86,41 @@ async def on_resumed():
 
 # Function to reconnect to the database if connection is lost
 async def reconnect_to_database():
-    while not await bot.db.is_connected():  # Используем await для проверки соединения
+    """
+    Attempt to reconnect to the database if the connection is lost.
+
+    This function runs in a loop, retrying every 60 seconds until the connection is successful.
+    """
+    while not await bot.db.is_connected():
         try:
-            await bot.db.connect()  # Попытка подключения
+            await bot.db.connect()
             logger.info('Successfully reconnected to the database.')
             break
         except Exception as e:
             logger.error(f'Failed to reconnect to the database: {e}', exc_info=True)
-            await asyncio.sleep(60)  # Подождать 60 секунд перед повторной попыткой
-
+            await asyncio.sleep(60)  # Wait 60 seconds before retrying
 
 # Handle unexpected errors
 @bot.event
 async def on_error(event, *args, **kwargs):
+    """
+    Event triggered when an unexpected error occurs during the bot's operation.
+
+    Args:
+        event (str): The name of the event where the error occurred.
+        *args: Additional positional arguments.
+        **kwargs: Additional keyword arguments.
+    """
     logger.error(f'An error occurred in event {event}: {args[0] if args else "no args"}', exc_info=True)
 
 # Asynchronous function to load Cogs
 async def load_extensions():
+    """
+    Load the bot's extensions (Cogs).
+
+    This function iterates through a list of predefined extensions and attempts to load each one.
+    Logs success or failure for each extension.
+    """
     initial_extensions = ['cogs.reminders', 'cogs.linkme', 'cogs.stats', 'cogs.rankings']
     for extension in initial_extensions:
         try:
@@ -100,6 +131,12 @@ async def load_extensions():
 
 # Main asynchronous function to initialize and run the bot
 async def run_bot():
+    """
+    Initialize and run the bot.
+
+    This function sets up the database, loads extensions, and starts the bot.
+    In case of errors during execution, the bot will restart after a short delay.
+    """
     while True:
         try:
             # Initialize the database
@@ -117,4 +154,9 @@ async def run_bot():
 
 # Main entry point
 if __name__ == '__main__':
+    """
+    Entry point of the script.
+
+    This block initializes the asynchronous bot execution process.
+    """
     asyncio.run(run_bot())
