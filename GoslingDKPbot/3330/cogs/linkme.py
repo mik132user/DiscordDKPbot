@@ -12,10 +12,6 @@ logger = logging.getLogger(__name__)
 class Linkme(commands.Cog):
     """
     A Cog for managing linking and unlinking player IDs to Discord users.
-
-    This Cog allows users to associate their Discord account with specific player IDs 
-    in a database, categorized as main, alt, or farm accounts. It provides commands 
-    for linking and unlinking player IDs, with rate-limiting and error handling.
     """
 
     def __init__(self, bot):
