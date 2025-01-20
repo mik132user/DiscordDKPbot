@@ -8,14 +8,40 @@ import asyncio
 logger = logging.getLogger(__name__)
 
 class Rankings(commands.Cog):
+    """
+    A Discord Cog for handling ranking-related commands.
+
+    Attributes:
+        bot (commands.Bot): The Discord bot instance.
+        user_command_timestamps (dict): Dictionary for rate-limiting user commands.
+    """
+
     def __init__(self, bot):
+        """
+        Initializes the Rankings Cog.
+
+        Args:
+            bot (commands.Bot): The Discord bot instance.
+        """
         self.bot = bot
-        # Anti-DDoS rate limiting: Dictionary to track command usage
         self.user_command_timestamps = {}
 
     @commands.command()
     async def top(self, ctx, number: int = 10):
-        # Implement rate limiting (1 command per 10 seconds per user)
+        """
+        Displays the top players based on a selected ranking category.
+
+        Args:
+            ctx (commands.Context): The context of the command.
+            number (int): The number of players to display (default is 10).
+
+        Raises:
+            Sends error messages to the user if:
+                - Command is used too frequently.
+                - Command is used in an unauthorized channel.
+                - Invalid number of players is specified.
+                - An error occurs during execution.
+        """
         now = discord.utils.utcnow()
         last_used = self.user_command_timestamps.get(ctx.author.id, None)
         if last_used and (now - last_used).total_seconds() < 10:
@@ -28,16 +54,13 @@ class Rankings(commands.Cog):
                 await ctx.send("This command is not allowed in this channel.")
                 return
 
-            # Limit the number of players
             if number < 1 or number > 25:
                 await ctx.send("Please specify a number between 1 and 25.")
                 return
 
-            # Create the buttons for selecting ranking categories
             view = RankSelectionView(self.bot, ctx.author, number)
             message = await ctx.send("Choose a ranking category:", view=view)
 
-            # Save the message for future interactions
             view.message = message
 
         except Exception as e:
@@ -46,7 +69,25 @@ class Rankings(commands.Cog):
 
 
 class RankSelectionView(View):
+    """
+    A view with buttons for selecting ranking categories.
+
+    Attributes:
+        bot (commands.Bot): The Discord bot instance.
+        author (discord.Member): The user who invoked the command.
+        number (int): The number of players to display.
+        column_mapping (dict): Maps button labels to database column names.
+    """
+
     def __init__(self, bot, author, number):
+        """
+        Initializes the RankSelectionView with buttons for ranking categories.
+
+        Args:
+            bot (commands.Bot): The Discord bot instance.
+            author (discord.Member): The user who invoked the command.
+            number (int): The number of players to display.
+        """
         super().__init__(timeout=60)
         self.bot = bot
         self.author = author
@@ -57,23 +98,43 @@ class RankSelectionView(View):
             'KP Gained': '(KP_gained_z5 + KP_gained_Kingsland + Altars_gained_KP + KP_gained_7_pass)',
             'Score': 'Changed_DKP'
         }
-        
+
         for label, column in self.column_mapping.items():
             button = Button(label=label, style=discord.ButtonStyle.primary)
             button.callback = lambda interaction, col=column: self.show_ranking(interaction, col)
             self.add_item(button)
 
     async def interaction_check(self, interaction):
-        """Checks whether the user who pressed the button is the same as the one who invoked the command."""
+        """
+        Ensures only the command invoker can interact with the buttons.
+
+        Args:
+            interaction (discord.Interaction): The interaction triggered by button press.
+
+        Returns:
+            bool: True if the interaction is allowed, otherwise False.
+        """
         if interaction.user != self.author:
             await interaction.response.send_message("You cannot interact with these buttons.", ephemeral=True)
             return False
         return True
 
     async def show_ranking(self, interaction, column_name):
+        """
+        Displays the ranking for the selected category.
+
+        Args:
+            interaction (discord.Interaction): The interaction triggered by button press.
+            column_name (str): The database column name for the ranking category.
+
+        Raises:
+            Sends error messages to the user if:
+                - Data retrieval fails.
+                - An exception occurs during execution.
+        """
         if not await self.interaction_check(interaction):
             return
-            
+
         try:
             async with self.bot.db.conn.cursor() as cursor:
                 query = f"""
@@ -110,7 +171,15 @@ class RankSelectionView(View):
             await interaction.response.send_message("An error occurred while fetching the top players.", ephemeral=True)
 
     def get_column_display_name(self, column_name):
-        """Maps column names to human-readable display names for the ranking categories."""
+        """
+        Maps database column names to human-readable display names.
+
+        Args:
+            column_name (str): The database column name.
+
+        Returns:
+            str: A human-readable display name for the ranking category.
+        """
         return {
             'Power_before_matchmaking': "Starting Power",
             '(Deads_gained_z5 + Deads_gained_Kingsland + Deads_gained_7_pass)': "Deads Gained",
@@ -119,7 +188,15 @@ class RankSelectionView(View):
         }.get(column_name, column_name.replace('_', ' ').capitalize())
 
     def safe_int_conversion(self, value):
-        """Converts a value to an integer, ignoring any fractional part."""
+        """
+        Safely converts a value to an integer, handling various formats.
+
+        Args:
+            value (any): The value to convert.
+
+        Returns:
+            int: The converted integer value, or 0 if conversion fails.
+        """
         try:
             if isinstance(value, str):
                 value_clean = value.replace(' ', '').replace(',', '.')
@@ -130,16 +207,32 @@ class RankSelectionView(View):
             return 0
 
     def get_trophy(self, index):
-        """Assigns a trophy emoji or position number based on ranking index."""
+        """
+        Assigns a trophy emoji or position number based on ranking index.
+
+        Args:
+            index (int): The ranking position.
+
+        Returns:
+            str: A trophy emoji or position number.
+        """
         trophies = [":first_place:", ":second_place:", ":third_place:"]
         return trophies[index] if index < 3 else f"{index + 1}:"
 
     async def on_timeout(self):
-        """Disable the view after timeout."""
+        """
+        Disables the view after the timeout period expires.
+        """
         for child in self.children:
             child.disabled = True
         if hasattr(self, 'message'):
             await self.message.edit(view=self)
             
 async def setup(bot):
+    """
+    Adds the Rankings Cog to the bot.
+
+    Args:
+        bot (commands.Bot): The Discord bot instance.
+    """
     await bot.add_cog(Rankings(bot))
