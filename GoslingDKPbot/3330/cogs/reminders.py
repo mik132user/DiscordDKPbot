@@ -1,5 +1,3 @@
-# cogs/reminders.py
-
 import discord
 from discord.ext import commands, tasks
 from datetime import datetime, timedelta
@@ -11,36 +9,51 @@ from utilits.constants import UPDATE_DATE, ALLOWED_CHANNELS
 logger = logging.getLogger(__name__)
 
 class Reminders(commands.Cog):
+    """
+    A cog for managing and sending event reminders in Discord channels.
+    """
     def __init__(self, bot):
+        """
+        Initialize the Reminders cog.
+
+        Args:
+            bot (commands.Bot): The bot instance to attach the cog to.
+        """
         self.bot = bot
         self.check_reminders.start()
         self.user_command_timestamps = {}
 
     def cog_unload(self):
+        """Cancel the check_reminders task when the cog is unloaded."""
         self.check_reminders.cancel()
 
     @commands.command()
     @commands.has_permissions(administrator=True)
     async def remind(self, ctx, event_type: str, date: str, time: str):
-        # Rate-limiting: Only one remind command every 10 seconds per user
+        """
+        Set a reminder for an event.
+
+        Args:
+            ctx (commands.Context): The context of the command.
+            event_type (str): The type of the event (e.g., 'altar', 'ruin').
+            date (str): The date of the event in 'DD.MM.YY' format.
+            time (str): The time of the event in 'HH:MM' format.
+        """
         now = discord.utils.utcnow()
         last_used = self.user_command_timestamps.get(ctx.author.id, None)
         if last_used and (now - last_used).total_seconds() < 10:
             await ctx.send("Please wait before using this command again.")
             return
         self.user_command_timestamps[ctx.author.id] = now
-        
+
         try:
-            # Parse date and time
             event_datetime = datetime.strptime(f"{date} {time}", "%d.%m.%y %H:%M")
             event_datetime = event_datetime.replace(tzinfo=pytz.UTC)
-            
-            # Ensure the event is in the future
+
             if event_datetime <= datetime.utcnow().replace(tzinfo=pytz.UTC):
                 await ctx.send("The event time must be in the future.")
                 return
 
-            # Determine notification time and interval
             if event_type == "altar":
                 notify_time = event_datetime - timedelta(hours=2)
                 interval = timedelta(hours=86)
@@ -51,7 +64,6 @@ class Reminders(commands.Cog):
                 await ctx.send("Invalid event type. Use 'altar' or 'ruin'. Example: `!remind altar 01.10.24 16:12`.")
                 return
 
-            # Database operations with error handling
             try:
                 async with self.bot.db.conn.cursor() as cursor:
                     await cursor.execute("""
@@ -66,17 +78,24 @@ class Reminders(commands.Cog):
                     await self.bot.db.conn.commit()
 
                 await ctx.send(f"Reminder set for {event_type} on {event_datetime.strftime('%d.%m.%y %H:%M UTC')} in this channel.")
-            
+
             except Exception as e:
                 logger.error(f"Database error: {e}")
                 await ctx.send("An error occurred while setting the reminder.")
-        
+
         except ValueError:
             await ctx.send("Invalid date or time format. Use 'DD.MM.YY HH:MM'. Example: `!remind altar 01.10.24 16:12`.")
 
     @commands.command()
     @commands.has_permissions(administrator=True)
     async def remind_off(self, ctx, event_type: str):
+        """
+        Cancel all reminders for a specific event type in the current channel.
+
+        Args:
+            ctx (commands.Context): The context of the command.
+            event_type (str): The type of the event to cancel (e.g., 'altar', 'ruin').
+        """
         if ctx.channel.id not in ALLOWED_CHANNELS:
             return
 
@@ -89,13 +108,16 @@ class Reminders(commands.Cog):
                 await self.bot.db.conn.commit()
 
             await ctx.send(f"All upcoming {event_type} reminders in this channel have been cancelled.")
-        
+
         except Exception as e:
             logger.error(f"Database error: {e}")
             await ctx.send("An error occurred while cancelling the reminders.")
 
     @tasks.loop(minutes=1)
     async def check_reminders(self):
+        """
+        Periodically check for reminders that need to be sent and handle them.
+        """
         now = datetime.utcnow().replace(tzinfo=pytz.UTC)
         try:
             async with self.bot.db.conn.cursor() as cursor:
@@ -117,7 +139,6 @@ class Reminders(commands.Cog):
                             description=description,
                             color=discord.Color.red()
                         )
-                        # Mention @everyone
                         await channel.send(f"@everyone", embed=embed)
 
                         next_event_time = event_time + (timedelta(hours=86) if event_type == "altar" else timedelta(hours=40))
@@ -136,15 +157,23 @@ class Reminders(commands.Cog):
 
     @check_reminders.before_loop
     async def before_check_reminders(self):
+        """
+        Wait until the bot is ready before starting the reminder loop.
+        """
         await self.bot.wait_until_ready()
 
     @commands.Cog.listener()
     async def on_command_error(self, ctx, error):
-        # Handle command errors
+        """
+        Handle errors for commands in this cog.
+
+        Args:
+            ctx (commands.Context): The context of the command.
+            error (Exception): The exception that occurred.
+        """
         if isinstance(error, commands.CommandNotFound):
             await ctx.send("Command not found. Please check your input.")
         elif isinstance(error, commands.MissingRequiredArgument):
-            # Specific error handling for remind_off command
             if ctx.command.name == 'remind_off':
                 await ctx.send("Please provide the event type argument. Example: `!remind_off altar`.")
             else:
@@ -158,4 +187,10 @@ class Reminders(commands.Cog):
             logger.error(f"Error in command '{ctx.command}': {error}")
 
 async def setup(bot):
+    """
+    Add the Reminders cog to the bot.
+
+    Args:
+        bot (commands.Bot): The bot instance to add the cog to.
+    """
     await bot.add_cog(Reminders(bot))
